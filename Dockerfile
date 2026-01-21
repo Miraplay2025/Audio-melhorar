@@ -1,13 +1,16 @@
-FROM node:18-bullseye
+FROM node:20-slim
 
 RUN apt-get update && apt-get install -y ffmpeg
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json .
 RUN npm install
 
 COPY . .
 
-ENV NODE_ENV=production
-CMD ["node", "server.js"]
+RUN mkdir uploads processed
+
+EXPOSE 3000
+
+CMD ["npm", "start"]
