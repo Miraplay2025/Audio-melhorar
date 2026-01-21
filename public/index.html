@@ -1,130 +1,49 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<title>Gravador Profissional de Voz</title>
-<style>
-body {
-  background: #0f172a;
-  font-family: Arial, sans-serif;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  color: white;
-}
-.box {
-  background: #020617;
-  padding: 30px;
-  border-radius: 12px;
-  width: 350px;
-  text-align: center;
-}
-button {
-  margin: 10px;
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  font-size: 16px;
-  cursor: pointer;
-}
-#start { background: #22c55e; }
-#stop { background: #ef4444; }
-#finish { background: #3b82f6; }
-#logs {
-  margin-top: 20px;
-  text-align: left;
-  max-height: 150px;
-  overflow-y: auto;
-  border: 1px solid #333;
-  padding: 10px;
-  border-radius: 6px;
-  background: #111827;
-}
-audio { margin-top: 20px; width: 100%; }
-</style>
+  <meta charset="UTF-8">
+  <title>Melhorar Áudio</title>
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-<div class="box">
-<h1>🎙️ Gravador de Voz</h1>
-<div id="timer">00:00</div>
+  <h2>Upload de Áudio</h2>
 
-<button id="start">Iniciar</button>
-<button id="stop" disabled>Parar</button>
-<button id="finish" disabled>Concluir</button>
+  <input type="file" id="audio" accept="audio/*">
+  <button onclick="enviar()">Melhorar Áudio</button>
 
-<div id="logs"></div>
+  <h3>Logs:</h3>
+  <pre id="logs"></pre>
 
-<audio id="preview" controls style="display:none;"></audio>
-<a id="download" href="#" download="voice-final.wav" style="display:none;">
-  <button style="background:#facc15;">Baixar Áudio</button>
-</a>
-</div>
+  <h3>Pré-visualização:</h3>
+  <audio id="player" controls></audio>
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-const socket = io();
-const startBtn = document.getElementById("start");
-const stopBtn = document.getElementById("stop");
-const finishBtn = document.getElementById("finish");
-const timerEl = document.getElementById("timer");
-const logsEl = document.getElementById("logs");
-const preview = document.getElementById("preview");
-const download = document.getElementById("download");
+  <script>
+    const socket = io();
+    const logs = document.getElementById("logs");
+    const player = document.getElementById("player");
 
-let recorder, chunks = [], seconds = 0, timer;
+    socket.on("log", msg => {
+      logs.textContent += msg + "\n";
+    });
 
-const log = msg => {
-  const div = document.createElement("div");
-  div.textContent = msg;
-  logsEl.appendChild(div);
-  logsEl.scrollTop = logsEl.scrollHeight;
-};
+    socket.on("done", url => {
+      player.src = url;
+      player.play();
+    });
 
-socket.on("log", log);
-socket.on("done", data => {
-  preview.src = data.url;
-  preview.style.display = "block";
-  download.href = data.url;
-  download.style.display = "block";
-});
+    function enviar() {
+      const file = document.getElementById("audio").files[0];
+      const data = new FormData();
+      data.append("audio", file);
 
-startBtn.onclick = async () => {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  recorder = new MediaRecorder(stream);
-  recorder.start();
-
-  timer = setInterval(() => {
-    seconds++;
-    timerEl.textContent =
-      String(Math.floor(seconds/60)).padStart(2,"0") + ":" +
-      String(seconds%60).padStart(2,"0");
-  }, 1000);
-
-  recorder.ondataavailable = e => chunks.push(e.data);
-
-  startBtn.disabled = true;
-  stopBtn.disabled = false;
-};
-
-stopBtn.onclick = () => {
-  recorder.stop();
-  clearInterval(timer);
-  stopBtn.disabled = true;
-  finishBtn.disabled = false;
-};
-
-finishBtn.onclick = async () => {
-  const blob = new Blob(chunks, { type: "audio/webm" });
-  const form = new FormData();
-  form.append("audio", blob);
-
-  log("Enviando áudio para processamento profissional...");
-
-  await fetch("/upload", { method:"POST", body: form });
-
-  log("Processamento iniciado...");
-};
-</script>
+      fetch("/upload", {
+        method: "POST",
+        headers: {
+          "socket-id": socket.id
+        },
+        body: data
+      });
+    }
+  </script>
 </body>
 </html>
