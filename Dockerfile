@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:latest
 
 RUN apt-get update && apt-get install -y ffmpeg
 
@@ -9,8 +9,7 @@ RUN npm install
 
 COPY . .
 
-RUN mkdir uploads processed
-
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
+ 
