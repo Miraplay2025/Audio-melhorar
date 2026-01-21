@@ -1,130 +1,130 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Gravador Profissional</title>
-  <style>
-    body {
-      background: #0f172a;
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      color: white;
-    }
-    .box {
-      background: #020617;
-      padding: 30px;
-      border-radius: 12px;
-      width: 350px;
-      text-align: center;
-    }
-    button {
-      margin: 10px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    #start { background: #22c55e; }
-    #stop { background: #ef4444; }
-    #finish { background: #3b82f6; }
-    #logs {
-      margin-top: 20px;
-      text-align: left;
-      max-height: 150px;
-      overflow-y: auto;
-      border: 1px solid #333;
-      padding: 10px;
-      border-radius: 6px;
-      background: #111827;
-    }
-    audio { margin-top: 20px; width: 100%; }
-  </style>
+<meta charset="UTF-8">
+<title>Gravador Profissional de Voz</title>
+<style>
+body {
+  background: #0f172a;
+  font-family: Arial, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  color: white;
+}
+.box {
+  background: #020617;
+  padding: 30px;
+  border-radius: 12px;
+  width: 350px;
+  text-align: center;
+}
+button {
+  margin: 10px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  cursor: pointer;
+}
+#start { background: #22c55e; }
+#stop { background: #ef4444; }
+#finish { background: #3b82f6; }
+#logs {
+  margin-top: 20px;
+  text-align: left;
+  max-height: 150px;
+  overflow-y: auto;
+  border: 1px solid #333;
+  padding: 10px;
+  border-radius: 6px;
+  background: #111827;
+}
+audio { margin-top: 20px; width: 100%; }
+</style>
 </head>
 <body>
-  <div class="box">
-    <h1>🎙️ Gravador de Narração</h1>
-    <div id="timer">00:00</div>
+<div class="box">
+<h1>🎙️ Gravador de Voz</h1>
+<div id="timer">00:00</div>
 
-    <button id="start">Iniciar</button>
-    <button id="stop" disabled>Parar</button>
-    <button id="finish" disabled>Concluir</button>
+<button id="start">Iniciar</button>
+<button id="stop" disabled>Parar</button>
+<button id="finish" disabled>Concluir</button>
 
-    <div id="logs"></div>
+<div id="logs"></div>
 
-    <audio id="preview" controls style="display:none;"></audio>
-    <a id="download" href="#" download="audio-final.wav" style="display:none;">
-      <button style="background:#facc15;">Baixar Áudio</button>
-    </a>
-  </div>
+<audio id="preview" controls style="display:none;"></audio>
+<a id="download" href="#" download="voice-final.wav" style="display:none;">
+  <button style="background:#facc15;">Baixar Áudio</button>
+</a>
+</div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const startBtn = document.getElementById("start");
-    const stopBtn = document.getElementById("stop");
-    const finishBtn = document.getElementById("finish");
-    const timerEl = document.getElementById("timer");
-    const logsEl = document.getElementById("logs");
-    const preview = document.getElementById("preview");
-    const download = document.getElementById("download");
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const startBtn = document.getElementById("start");
+const stopBtn = document.getElementById("stop");
+const finishBtn = document.getElementById("finish");
+const timerEl = document.getElementById("timer");
+const logsEl = document.getElementById("logs");
+const preview = document.getElementById("preview");
+const download = document.getElementById("download");
 
-    let recorder, chunks = [], seconds = 0, timer;
+let recorder, chunks = [], seconds = 0, timer;
 
-    const log = (msg) => {
-      const div = document.createElement("div");
-      div.textContent = msg;
-      logsEl.appendChild(div);
-      logsEl.scrollTop = logsEl.scrollHeight;
-    };
+const log = msg => {
+  const div = document.createElement("div");
+  div.textContent = msg;
+  logsEl.appendChild(div);
+  logsEl.scrollTop = logsEl.scrollHeight;
+};
 
-    socket.on("log", msg => log(msg));
-    socket.on("done", data => {
-      preview.src = data.url;
-      preview.style.display = "block";
-      download.href = data.url;
-      download.style.display = "block";
-    });
+socket.on("log", log);
+socket.on("done", data => {
+  preview.src = data.url;
+  preview.style.display = "block";
+  download.href = data.url;
+  download.style.display = "block";
+});
 
-    startBtn.onclick = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recorder = new MediaRecorder(stream);
-      recorder.start();
+startBtn.onclick = async () => {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  recorder = new MediaRecorder(stream);
+  recorder.start();
 
-      timer = setInterval(() => {
-        seconds++;
-        timerEl.textContent =
-          String(Math.floor(seconds / 60)).padStart(2,"0") + ":" +
-          String(seconds % 60).padStart(2,"0");
-      }, 1000);
+  timer = setInterval(() => {
+    seconds++;
+    timerEl.textContent =
+      String(Math.floor(seconds/60)).padStart(2,"0") + ":" +
+      String(seconds%60).padStart(2,"0");
+  }, 1000);
 
-      recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.ondataavailable = e => chunks.push(e.data);
 
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-    };
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+};
 
-    stopBtn.onclick = () => {
-      recorder.stop();
-      clearInterval(timer);
-      stopBtn.disabled = true;
-      finishBtn.disabled = false;
-    };
+stopBtn.onclick = () => {
+  recorder.stop();
+  clearInterval(timer);
+  stopBtn.disabled = true;
+  finishBtn.disabled = false;
+};
 
-    finishBtn.onclick = async () => {
-      const blob = new Blob(chunks, { type: "audio/webm" });
-      const form = new FormData();
-      form.append("audio", blob);
+finishBtn.onclick = async () => {
+  const blob = new Blob(chunks, { type: "audio/webm" });
+  const form = new FormData();
+  form.append("audio", blob);
 
-      log("Enviando áudio para processamento...");
+  log("Enviando áudio para processamento profissional...");
 
-      await fetch("/upload", { method:"POST", body: form });
+  await fetch("/upload", { method:"POST", body: form });
 
-      log("Processamento iniciado...");
-    };
-  </script>
+  log("Processamento iniciado...");
+};
+</script>
 </body>
 </html>
