@@ -19,25 +19,26 @@ io.on("connection", socket => {
   console.log("Cliente conectado");
 });
 
+// Endpoint de upload
 app.post("/upload", upload.single("audio"), (req, res) => {
   const input = req.file.path;
   const output = `uploads/voice-${Date.now()}.wav`;
+  const rnnoiseModel = path.join(__dirname, "rnnoise/rnnoise_model.rnn");
 
   const log = (msg) => io.emit("log", msg);
 
   log("Áudio recebido com sucesso");
+  log("Iniciando redução de ruído...");
+  log("Aplicando detecção automática da voz e volume adaptativo...");
 
-  // Pipeline: RNNoise (redução de ruído) + ganho automático + normalização
+  // Pipeline: RNNoise + normalização dinâmica + compressor
   const command = `
 ffmpeg -y -i ${input} -af "
-arnndn=m=rnnoise_model.rnn,
+arnndn=m=${rnnoiseModel},
 dynaudnorm=f=150:g=15,
 acompressor=threshold=-18dB:ratio=4:attack=5:release=50:makeup=6
 " ${output}
 `;
-
-  log("Iniciando redução de ruído...");
-  log("Aplicando detecção automática da voz e volume adaptativo...");
 
   exec(command, (error) => {
     fs.unlinkSync(input);
@@ -56,7 +57,7 @@ acompressor=threshold=-18dB:ratio=4:attack=5:release=50:makeup=6
   });
 });
 
-// Servir uploads
+// Servir arquivos de uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 server.listen(PORT, () => {
