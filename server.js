@@ -1,71 +1,58 @@
-const express = require("express");
-const multer = require("multer");
-const { exec } = require("child_process");
-const fs = require("fs");
-const http = require("http");
-const socketio = require("socket.io");
-const path = require("path");
+import express from "express";
+import multer from "multer";
+import { exec } from "child_process";
+import http from "http";
+import { Server } from "socket.io";
+import path from "path";
+import fs from "fs";
 
 const app = express();
 const server = http.createServer(app);
-const io = socketio(server);
+const io = new Server(server);
+
+app.use(express.static("public"));
+app.use("/processed", express.static("processed"));
 
 const upload = multer({ dest: "uploads/" });
-const PORT = process.env.PORT || 3000;
 
-/* Pastas estáticas */
-app.use(express.static("public"));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+io.on("connection", socket => {
+  socket.emit("log", "🎧 Sistema de áudio profissional conectado");
+});
 
-/* Logs em tempo real */
-const log = msg => io.emit("log", msg);
-
-/* Upload e processamento */
 app.post("/upload", upload.single("audio"), (req, res) => {
   const input = req.file.path;
-  const output = `uploads/narracao-youtube-${Date.now()}.wav`;
+  const output = `processed/voice-${Date.now()}.wav`;
 
-  log("Áudio recebido com sucesso");
-  log("Otimizando áudio para narração YouTube...");
-  log("Aplicando limpeza segura (voz preservada)...");
-  log("Ajustando volume automaticamente...");
-
-  /*
-    PIPELINE SEGURO:
-    - NÃO remove voz
-    - NÃO remove silêncio
-    - NÃO usa gate
-    - NÃO usa RNNoise
-  */
-  const command = `
-ffmpeg -y -i "${input}" -af "
+  const ffmpegCommand = `
+ffmpeg -y -i ${input} \
+-af "
 highpass=f=80,
-lowpass=f=16000,
-afftdn=nf=-20,
-dynaudnorm=f=300:g=10,
-acompressor=threshold=-18dB:ratio=3:attack=20:release=200:makeup=3
-" "${output}"
+equalizer=f=300:t=q:w=1:g=3,
+equalizer=f=3000:t=q:w=1:g=4,
+acompressor=threshold=-18dB:ratio=4:attack=5:release=50,
+loudnorm=I=-14:TP=-1.5:LRA=11,
+alimiter=limit=0.98
+" ${output}
 `;
 
-  exec(command, (err, stdout, stderr) => {
-    fs.unlink(input, () => {});
+  io.emit("log", "🧠 Aplicando IA de áudio...");
+  io.emit("log", "🔊 Ajustando volume, clareza e presença");
+
+  exec(ffmpegCommand, err => {
+    fs.unlinkSync(input);
 
     if (err) {
-      console.error(stderr);
-      log("Erro no processamento do áudio");
-      return res.status(500).json({ error: "Falha no processamento" });
+      io.emit("log", "❌ Erro no processamento");
+      return res.sendStatus(500);
     }
 
-    log("Ruído reduzido com segurança");
-    log("Voz preservada e natural");
-    log("Áudio pronto para uso no YouTube");
+    io.emit("log", "✅ Áudio profissional finalizado!");
+    io.emit("done", { url: `/${output}` });
 
-    io.emit("done", { url: "/" + output });
-    res.json({ url: "/" + output });
+    res.sendStatus(200);
   });
 });
 
-/* Servidor */
-server.listen(PORT, () => {
-  console.log("Servidor rodando na porta", PORT);
-});
+server.listen(3000, () =>
+  console.log("🚀 Servidor rodando na porta 3000")
+);
