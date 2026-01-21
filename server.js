@@ -11,7 +11,6 @@ const server = http.createServer(app);
 const io = socketio(server);
 
 const upload = multer({ dest: "uploads/" });
-
 const PORT = process.env.PORT || 3000;
 
 app.use(express.static("public"));
@@ -20,55 +19,46 @@ io.on("connection", socket => {
   console.log("Cliente conectado");
 });
 
-// Endpoint de upload
 app.post("/upload", upload.single("audio"), (req, res) => {
   const input = req.file.path;
-  const output = `uploads/final-${Date.now()}.wav`;
+  const output = `uploads/voice-${Date.now()}.wav`;
 
-  // Função para enviar logs em tempo real
   const log = (msg) => io.emit("log", msg);
 
   log("Áudio recebido com sucesso");
 
+  // Pipeline: RNNoise (redução de ruído) + ganho automático + normalização
   const command = `
-ffmpeg -y -i ${input} \
--af "
-highpass=f=70,
-lowpass=f=16000,
-afftdn=nf=-30,
-acompressor=threshold=-20dB:ratio=3:attack=5:release=100:makeup=3,
-alimiter=limit=0.95,
-loudnorm=I=-14:LRA=6:TP=-1
-" \
-${output}
+ffmpeg -y -i ${input} -af "
+arnndn=m=rnnoise_model.rnn,
+dynaudnorm=f=150:g=15,
+acompressor=threshold=-18dB:ratio=4:attack=5:release=50:makeup=6
+" ${output}
 `;
 
-  log("Iniciando processamento de áudio...");
+  log("Iniciando redução de ruído...");
+  log("Aplicando detecção automática da voz e volume adaptativo...");
 
   exec(command, (error) => {
     fs.unlinkSync(input);
 
     if (error) {
-      log("Erro durante o processamento");
+      log("Erro durante o processamento de áudio");
       console.error(error);
       return res.status(500).send("Erro no processamento de áudio");
     }
 
-    log("Volume atualizado com sucesso");
-    log("Ruído reduzido com sucesso");
-    log("Normalização finalizada");
-    log("Áudio processado com sucesso!");
+    log("Volume da voz ajustado com sucesso");
+    log("Áudio limpo e natural pronto para reprodução e download");
 
-    // Envia caminho para o frontend
     io.emit("done", { url: `/uploads/${path.basename(output)}` });
-
     res.json({ url: `/uploads/${path.basename(output)}` });
   });
 });
 
-// Servir arquivos de uploads
+// Servir uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 server.listen(PORT, () => {
-  console.log(`Servidor rodando em http://localhost:${PORT}`);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
